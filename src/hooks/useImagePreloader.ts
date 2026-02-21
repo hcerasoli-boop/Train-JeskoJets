@@ -11,7 +11,8 @@ interface PreloaderResult {
 export function useImagePreloader(
   directoryPath: string,
   totalFrames: number,
-  formatFileName: (index: number) => string = (index) => `${(index + 1).toString().padStart(3, '0')}.jpg`
+  formatFileName: (index: number) => string = (index) => `${(index + 1).toString().padStart(3, '0')}.jpg`,
+  shouldLoad: boolean = true
 ): PreloaderResult {
   const [images, setImages] = useState<HTMLImageElement[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -54,14 +55,14 @@ export function useImagePreloader(
       }
     };
 
-    if (totalFrames > 0) {
+    if (totalFrames > 0 && shouldLoad) {
       loadImages();
     }
 
     return () => {
       isCancelled = true;
     };
-  }, [directoryPath, totalFrames, formatFileName]);
+  }, [directoryPath, totalFrames, formatFileName, shouldLoad]);
 
   return { images, isLoading, progress };
 }

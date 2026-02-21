@@ -1,19 +1,29 @@
 'use client';
 
-import { useRef } from 'react';
-import { useScroll, useTransform, useAnimationFrame } from 'framer-motion';
+import { useRef, useState, useEffect } from 'react';
+import { useScroll, useTransform, useAnimationFrame, motion } from 'framer-motion';
 import { useImagePreloader } from '@/hooks/useImagePreloader';
 
 export default function TrainMorph() {
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const lastRenderedFrame = useRef<number>(-1);
+    const [isReadyToLoad, setIsReadyToLoad] = useState<boolean>(false);
+
+    // Listen for Hero sequence completion to start loading this one
+    useEffect(() => {
+        const handleSequenceLoaded = () => setIsReadyToLoad(true);
+        window.addEventListener('sequence1Loaded', handleSequenceLoaded);
+        return () => window.removeEventListener('sequence1Loaded', handleSequenceLoaded);
+    }, []);
 
     // Setup Image Preloader
     const TOTAL_FRAMES = 160;
     const { images, isLoading, progress } = useImagePreloader(
         '/sequence-2/Animation2',
         TOTAL_FRAMES,
-        (index) => `frame_${index.toString().padStart(3, '0')}_delay-0.05s.jpg`
+        (index) => `frame_${index.toString().padStart(3, '0')}_delay-0.05s.webp`,
+        isReadyToLoad
     );
 
     // Framer Motion Scroll Mapping
@@ -28,30 +38,32 @@ export default function TrainMorph() {
     useAnimationFrame(() => {
         if (!canvasRef.current || images.length === 0 || isLoading) return;
 
-        const context = canvasRef.current.getContext('2d');
-        if (!context) return;
-
-        // Get current frame index from transform motion
         const currentFrame = Math.round(frameIndex.get());
 
-        // Safety check just in case index goes out of bounds
+        // Performance Fix: Only redraw if the frame actually changed
+        if (currentFrame === lastRenderedFrame.current) return;
+
+        const context = canvasRef.current.getContext('2d', { alpha: false }); // alpha: false helps performance
+        if (!context) return;
+
         if (images[currentFrame]) {
             const img = images[currentFrame];
-
             const canvas = canvasRef.current;
+
             const ratio = Math.max(canvas.width / img.width, canvas.height / img.height);
             const x = (canvas.width - img.width * ratio) / 2;
             const y = (canvas.height - img.height * ratio) / 2;
 
-            context.clearRect(0, 0, canvas.width, canvas.height);
             context.drawImage(img, 0, 0, img.width, img.height, x, y, img.width * ratio, img.height * ratio);
+
+            lastRenderedFrame.current = currentFrame;
         }
     });
 
     return (
         <div ref={containerRef} className="relative h-[400vh] bg-[#050505]">
             {/* Loading State Overlay */}
-            {isLoading && progress > 0 && (
+            {isLoading && progress > 0 && isReadyToLoad && (
                 <div className="sticky top-0 h-screen w-full flex flex-col items-center justify-center bg-[#050505] text-[#A3A3A3] z-50">
                     <p className="tracking-[0.2em] text-xs uppercase mb-2">Loading Morph Sequence</p>
                     <div className="w-32 h-[2px] bg-[#1A1A1A]">
@@ -77,12 +89,24 @@ export default function TrainMorph() {
 
                 {/* Cinematic Typography Overlay */}
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center pointer-events-none px-6">
-                    <h2 className="text-white text-4xl md:text-6xl font-light tracking-[0.2em] mb-6">
+                    <motion.h2
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
+                        viewport={{ once: true, margin: "-20%" }}
+                        className="text-white text-4xl md:text-6xl font-light tracking-[0.2em] mb-6"
+                    >
                         ENGINEERED FOR TOMORROW.
-                    </h2>
-                    <p className="text-[#A3A3A3] text-lg md:text-xl font-light tracking-wide max-w-2xl">
+                    </motion.h2>
+                    <motion.p
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+                        viewport={{ once: true, margin: "-20%" }}
+                        className="text-[#A3A3A3] text-lg md:text-xl font-light tracking-wide max-w-2xl"
+                    >
                         From blueprint to reality. Precision mechanics meet uncompromising luxury.
-                    </p>
+                    </motion.p>
                 </div>
 
                 {/* Soft bottom gradient to blend into Globe section */}
